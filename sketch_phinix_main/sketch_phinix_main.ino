@@ -17,6 +17,11 @@ extern uint8_t packetbuffer[];
 
 bool isConnected = false; // Variable to track connection status
 
+static uint16_t sin_wave[8] = {100};
+static uint16_t silence[8] = {0};
+
+void OnPwmSequenceEnd();
+
 void setup(void)
 {
 
@@ -54,6 +59,11 @@ void setup(void)
   Serial.println(
       F("Then activate/use the sensors, color picker, game controller, etc!"));
   Serial.println();
+
+  audio_tactile::SleeveTactors.OnSequenceEnd(OnPwmSequenceEnd);
+  audio_tactile::SleeveTactors.Initialize();
+  nrf_pwm_task_trigger(NRF_PWM1, NRF_PWM_TASK_SEQSTART0);
+  nrf_pwm_task_trigger(NRF_PWM2, NRF_PWM_TASK_SEQSTART0);
 
   nrf_gpio_pin_write(kLedPinGreen, 1);
 }
@@ -120,5 +130,19 @@ void loop(void)
 
     // Print received UART data
     Serial.write(packetbuffer, len);
+    for (int c = 0; c < 12; c++) {
+      if(packetbuffer[0] == '1')
+      {
+        Serial.println("buzzer on");
+        audio_tactile::SleeveTactors.UpdateChannel(c,sin_wave);
+      }
+      if(packetbuffer[0] == '0')
+      {
+        Serial.println("buzzer off");
+        audio_tactile::SleeveTactors.UpdateChannel(c,silence);
+      }
+    }
   }
 }
+
+void OnPwmSequenceEnd() {}
