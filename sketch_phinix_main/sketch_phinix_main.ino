@@ -20,6 +20,8 @@ bool isConnected = false; // Variable to track connection status
 static uint16_t sin_wave[8] = {100};
 static uint16_t silence[8] = {0};
 
+int currentBuzzer = 0;
+
 void OnPwmSequenceEnd();
 
 void setup(void)
@@ -130,7 +132,37 @@ void loop(void)
 
     // Print received UART data
     Serial.write(packetbuffer, len);
-    for (int c = 0; c < 12; c++) {
+
+    if(packetbuffer[0] == '0')
+    {
+      for (int c = 0; c < 12; c++) {
+        audio_tactile::SleeveTactors.UpdateChannel(c,silence);
+      }
+      
+      currentBuzzer = 0;
+
+    }
+    if(packetbuffer[0] == '1')
+    {
+      audio_tactile::SleeveTactors.UpdateChannel(currentBuzzer,silence);
+      currentBuzzer ++;
+      //Serial.println(currentBuzzer);
+      audio_tactile::SleeveTactors.UpdateChannel(currentBuzzer,sin_wave);
+      if(currentBuzzer == 12)
+      {
+        currentBuzzer = 0;
+      }
+    }
+    if(packetbuffer[0] == '2')
+    {
+      for (int c = 0; c < 12; c++) {
+        audio_tactile::SleeveTactors.UpdateChannel(c,sin_wave);
+      }
+      
+      currentBuzzer = 0;
+
+    }
+    /*for (int c = 0; c < 12; c++) {
       if(packetbuffer[0] == '1')
       {
         Serial.println("buzzer on");
@@ -141,7 +173,7 @@ void loop(void)
         Serial.println("buzzer off");
         audio_tactile::SleeveTactors.UpdateChannel(c,silence);
       }
-    }
+    }*/
   }
 }
 
