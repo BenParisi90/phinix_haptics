@@ -17,10 +17,16 @@ extern uint8_t packetbuffer[];
 
 bool isConnected = false; // Variable to track connection status
 
-static uint16_t sin_wave[8] = {100};
+static uint16_t level1[8] = {51};
+static uint16_t level2[8] = {102};
+static uint16_t level3[8] = {153};
+static uint16_t level4[8] = {204};
+static uint16_t level5[8] = {255};
 static uint16_t silence[8] = {0};
+uint16_t pattern[8] = {0};
 
 int currentBuzzer = 0;
+const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
 
 void OnPwmSequenceEnd();
 
@@ -133,6 +139,40 @@ void loop(void)
     // Print received UART data
     Serial.write(packetbuffer, len);
 
+    for(int i = 0; i < 8; i ++)
+    {
+      int buzzerChannel = buzzerChannelMap[i];
+      int buzzerStrength = packetbuffer[i];
+      buzzerStrength -= 48;
+      Serial.println(buzzerStrength);
+      //pattern[i] = map(buzzerStrength, 0, 9, 0, 100);
+      if(buzzerStrength == 0)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,silence);
+      }
+      if(buzzerStrength == 1)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level1);
+      }
+      if(buzzerStrength == 2)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level2);
+      }
+      if(buzzerStrength == 3)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level3);
+      }
+      if(buzzerStrength == 4)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level4);
+      }
+      if(buzzerStrength == 5)
+      {
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level5);
+      }
+    }
+
+    /*
     if(packetbuffer[0] == '0')
     {
       for (int c = 0; c < 12; c++) {
@@ -162,6 +202,9 @@ void loop(void)
       currentBuzzer = 0;
 
     }
+    */
+
+
     /*for (int c = 0; c < 12; c++) {
       if(packetbuffer[0] == '1')
       {
