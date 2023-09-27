@@ -1,6 +1,7 @@
 #include <bluefruit.h>
 #include "pwm_sleeve.h"
 #include <Arduino.h>
+#include <vector>
 
 // OTA DFU service
 BLEDfu bledfu;
@@ -10,8 +11,6 @@ BLEUart bleuart;
 
 // Function prototypes for packetparser.cpp
 uint8_t readPacket(BLEUart *ble_uart);//, uint16_t timeout);
-//float parsefloat(uint8_t *buffer);
-//void printHex(const uint8_t *data, const uint32_t numBytes);
 
 // Packet buffer
 extern uint8_t packetbuffer[];
@@ -30,8 +29,50 @@ const uint16_t* levels[] = {silence, level1, level2, level3, level4, level5};
 int currentBuzzer = 0;
 const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
 
+bool testBuzz = false;
+
+//delta time
+int currentMillis = 0;
+int previousMillis = 0;
+int dt = 0;
+
 void OnPwmSequenceEnd();
 void startAdv();
+
+struct BuzzCommand {
+  int channel;
+  unsigned long startTime;
+  unsigned long duration;
+  int levelIndex;
+  bool active = false;
+};
+
+std::vector<BuzzCommand> activeBuzzCommands;
+
+void addBuzzCommand(int channel, unsigned long startDelay, unsigned long duration, int level) {
+  BuzzCommand buzzCommand;
+  buzzCommand.channel = buzzerChannelMap[channel];
+  buzzCommand.startTime = millis() + startDelay;
+  buzzCommand.duration = duration;
+  buzzCommand.levelIndex = level;
+  activeBuzzCommands.push_back(buzzCommand);
+}
+
+void updateBuzzCommands(float dt) {
+  for (int i = activeBuzzCommands.size() - 1; i >= 0; i--) {
+    BuzzCommand& buzzCommand = activeBuzzCommands[i]; // Use a reference to update the original object
+    unsigned long currentTime = millis();
+    if (!buzzCommand.active && currentTime >= buzzCommand.startTime) {
+      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, levels[buzzCommand.levelIndex]);
+      buzzCommand.active = true;
+    } else if(buzzCommand.active && currentTime >= buzzCommand.startTime + buzzCommand.duration){
+      nrf_gpio_pin_write(kLedPinBlue, 1);
+      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, silence);
+      buzzCommand.active = false;
+      activeBuzzCommands.erase(activeBuzzCommands.begin() + i); // Remove the command from the vector
+    }
+  }
+}
 
 void setup(void)
 {
@@ -42,12 +83,7 @@ void setup(void)
   nrf_gpio_pin_write(kLedPinBlue, 0);
   nrf_gpio_pin_write(kLedPinGreen, 0);
   
-
   Serial.begin(115200);
-  //while (!Serial)
-  //  delay(10); // for nrf52840 with native USB
-
-  nrf_gpio_pin_write(kLedPinGreen, 1);
 
   Serial.println(F("Adafruit Bluefruit52 Controller App Example"));
   Serial.println(F("-------------------------------------------"));
@@ -77,6 +113,9 @@ void setup(void)
   nrf_pwm_task_trigger(NRF_PWM2, NRF_PWM_TASK_SEQSTART0);
 
   nrf_gpio_pin_write(kLedPinGreen, 1);
+
+  currentMillis = millis();
+  previousMillis = currentMillis;
 }
 
 void startAdv(void)
@@ -93,28 +132,33 @@ void startAdv(void)
   // Since there is no room for 'Name' in Advertising packet
   Bluefruit.ScanResponse.addName();
 
-  /* Start Advertising
-   * - Enable auto advertising if disconnected
-   * - Interval:  fast mode = 20 ms, slow mode = 152.5 ms
-   * - Timeout for fast mode is 30 seconds
-   * - Start(timeout) with timeout = 0 will advertise forever (until connected)
-   * 
-   * For recommended advertising interval
-   * https://developer.apple.com/library/content/qa/qa1931/_index.html   
-   */
   Bluefruit.Advertising.restartOnDisconnect(true);
   Bluefruit.Advertising.setInterval(32, 244); // in unit of 0.625 ms
   Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
   Bluefruit.Advertising.start(0);             // 0 = Don't stop advertising after n seconds
 }
 
-/**************************************************************************/
-/*!
-    @brief  Constantly poll for new command or response data
-*/
-/**************************************************************************/
 void loop(void)
 {
+
+
+  //delta time
+  currentMillis = millis();
+  dt = currentMillis - previousMillis;
+  previousMillis = currentMillis;
+
+  //play a test buzz on start
+  Serial.println(currentMillis);
+  if(!testBuzz && currentMillis > 5000)
+  {
+    testBuzz = true;
+    addBuzzCommand(0, 0, 1000, 5);
+    addBuzzCommand(1, 1000, 2000, 1);
+    addBuzzCommand(2, 3000, 3000, 2);
+  }
+
+  updateBuzzCommands(dt);
+  
   // Check if the connection status has changed
   bool newIsConnected = Bluefruit.connected();
   if (newIsConnected != isConnected)
