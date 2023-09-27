@@ -25,6 +25,7 @@ static uint16_t level4[8] = {204};
 static uint16_t level5[8] = {255};
 static uint16_t silence[8] = {0};
 uint16_t pattern[8] = {0};
+const uint16_t* levels[] = {silence, level1, level2, level3, level4, level5};
 
 int currentBuzzer = 0;
 const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
@@ -141,84 +142,13 @@ void loop(void)
     // Print received UART data
     Serial.write(packetbuffer, len);
 
-    for(int i = 0; i < 8; i ++)
+    for(int i = 0; i < 8; i++)
     {
       int buzzerChannel = buzzerChannelMap[i];
-      int buzzerStrength = packetbuffer[i];
-      buzzerStrength -= 48;
+      int buzzerStrength = packetbuffer[i] - '0';
       Serial.println(buzzerStrength);
-      //pattern[i] = map(buzzerStrength, 0, 9, 0, 100);
-      if(buzzerStrength == 0)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,silence);
-      }
-      if(buzzerStrength == 1)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level1);
-      }
-      if(buzzerStrength == 2)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level2);
-      }
-      if(buzzerStrength == 3)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level3);
-      }
-      if(buzzerStrength == 4)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level4);
-      }
-      if(buzzerStrength == 5)
-      {
-        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel,level5);
-      }
+      audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel, levels[buzzerStrength]);
     }
-
-    /*
-    if(packetbuffer[0] == '0')
-    {
-      for (int c = 0; c < 12; c++) {
-        audio_tactile::SleeveTactors.UpdateChannel(c,silence);
-      }
-      
-      currentBuzzer = 0;
-
-    }
-    if(packetbuffer[0] == '1')
-    {
-      audio_tactile::SleeveTactors.UpdateChannel(currentBuzzer,silence);
-      currentBuzzer ++;
-      //Serial.println(currentBuzzer);
-      audio_tactile::SleeveTactors.UpdateChannel(currentBuzzer,sin_wave);
-      if(currentBuzzer == 12)
-      {
-        currentBuzzer = 0;
-      }
-    }
-    if(packetbuffer[0] == '2')
-    {
-      for (int c = 0; c < 12; c++) {
-        audio_tactile::SleeveTactors.UpdateChannel(c,sin_wave);
-      }
-      
-      currentBuzzer = 0;
-
-    }
-    */
-
-
-    /*for (int c = 0; c < 12; c++) {
-      if(packetbuffer[0] == '1')
-      {
-        Serial.println("buzzer on");
-        audio_tactile::SleeveTactors.UpdateChannel(c,sin_wave);
-      }
-      if(packetbuffer[0] == '0')
-      {
-        Serial.println("buzzer off");
-        audio_tactile::SleeveTactors.UpdateChannel(c,silence);
-      }
-    }*/
   }
 }
 
