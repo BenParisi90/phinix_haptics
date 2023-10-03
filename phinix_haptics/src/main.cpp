@@ -3,19 +3,21 @@
 #include <Arduino.h>
 #include <vector>
 
-// OTA DFU service
-BLEDfu bledfu;
-
-// Uart over BLE service
-BLEUart bleuart;
-
 // Function prototypes for packetparser.cpp
 uint8_t readPacket(BLEUart *ble_uart);//, uint16_t timeout);
+
+void OnPwmSequenceEnd();
+
+void startAdv(BLEUart *bleuart);
+void beginBluetooth(BLEUart *bleuart, BLEDfu *bledfu);
+void bluetoothConnectionCheck();
 
 // Packet buffer
 extern uint8_t packetbuffer[];
 
-bool isConnected = false; // Variable to track connection status
+// OTA DFU service
+BLEDfu bledfu;
+BLEUart bleuart;
 
 static uint16_t level1[8] = {51};
 static uint16_t level2[8] = {102};
@@ -35,9 +37,6 @@ bool testBuzz = false;
 int currentMillis = 0;
 int previousMillis = 0;
 int dt = 0;
-
-void OnPwmSequenceEnd();
-void startAdv();
 
 struct BuzzCommand {
   int channel;
@@ -85,27 +84,13 @@ void setup(void)
   
   Serial.begin(115200);
 
-  Serial.println(F("Adafruit Bluefruit52 Controller App Example"));
-  Serial.println(F("-------------------------------------------"));
-
-  Bluefruit.begin();
-  Bluefruit.setTxPower(4); // Check bluefruit.h for supported values
-  Bluefruit.setName("Ximira_Phinix_Bracelet");
-
-  // To be consistent OTA DFU should be added first if it exists
-  bledfu.begin();
-
-  // Configure and start the BLE Uart service
-  bleuart.begin();
+  beginBluetooth(&bleuart, &bledfu);
 
   // Set up and start advertising
-  startAdv();
+  startAdv(&bleuart);
 
   Serial.println(
-      F("Please use Adafruit Bluefruit LE app to connect in Controller mode"));
-  Serial.println(
-      F("Then activate/use the sensors, color picker, game controller, etc!"));
-  Serial.println();
+      F("Bluetooth setup and advertising!"));
 
   audio_tactile::SleeveTactors.OnSequenceEnd(OnPwmSequenceEnd);
   audio_tactile::SleeveTactors.Initialize();
@@ -118,30 +103,10 @@ void setup(void)
   previousMillis = currentMillis;
 }
 
-void startAdv(void)
-{
-  // Advertising packet
-  Bluefruit.Advertising.addFlags(
-      BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-  Bluefruit.Advertising.addTxPower();
 
-  // Include the BLE UART (AKA 'NUS') 128-bit UUID
-  Bluefruit.Advertising.addService(bleuart);
-
-  // Secondary Scan Response packet (optional)
-  // Since there is no room for 'Name' in Advertising packet
-  Bluefruit.ScanResponse.addName();
-
-  Bluefruit.Advertising.restartOnDisconnect(true);
-  Bluefruit.Advertising.setInterval(32, 244); // in unit of 0.625 ms
-  Bluefruit.Advertising.setFastTimeout(30);   // number of seconds in fast mode
-  Bluefruit.Advertising.start(0);             // 0 = Don't stop advertising after n seconds
-}
 
 void loop(void)
 {
-
-
   //delta time
   currentMillis = millis();
   dt = currentMillis - previousMillis;
@@ -159,20 +124,7 @@ void loop(void)
 
   updateBuzzCommands(dt);
   
-  // Check if the connection status has changed
-  bool newIsConnected = Bluefruit.connected();
-  if (newIsConnected != isConnected)
-  {
-    isConnected = newIsConnected;
-    if (isConnected)
-    {
-      Serial.println("Device connected!");
-    }
-    else
-    {
-      Serial.println("Device disconnected!");
-    }
-  }
+  bluetoothConnectionCheck();
 
   // Wait for new data to arrive
   uint8_t len = readPacket(&bleuart);
