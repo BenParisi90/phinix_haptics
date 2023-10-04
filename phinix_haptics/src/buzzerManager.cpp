@@ -18,19 +18,25 @@ const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
 struct BuzzCommand {
   int channel;
   unsigned long startTime;
-  unsigned long duration;
   int levelIndex;
-  bool active = false;
+  bool active;
 };
 
 std::vector<BuzzCommand> activeBuzzCommands;
 
-void addBuzzCommand(int channel, unsigned long startDelay, unsigned long duration, int level) {
+void addBuzzCommand(int channel, unsigned long startDelay, int level) {
+  Serial.print("Adding buzz command: ");
+  Serial.print(channel);
+  Serial.print(" ");
+  Serial.print(startDelay);
+  Serial.print(" ");
+  Serial.print(level);
+  Serial.println(" ");
   BuzzCommand buzzCommand;
   buzzCommand.channel = buzzerChannelMap[channel];
   buzzCommand.startTime = millis() + startDelay;
-  buzzCommand.duration = duration;
   buzzCommand.levelIndex = level;
+  buzzCommand.active = false;
   activeBuzzCommands.push_back(buzzCommand);
 }
 
@@ -41,11 +47,6 @@ void updateBuzzCommands(float dt) {
     if (!buzzCommand.active && currentTime >= buzzCommand.startTime) {
       audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, levels[buzzCommand.levelIndex]);
       buzzCommand.active = true;
-    } else if(buzzCommand.active && currentTime >= buzzCommand.startTime + buzzCommand.duration){
-      nrf_gpio_pin_write(kLedPinBlue, 1);
-      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, silence);
-      buzzCommand.active = false;
-      activeBuzzCommands.erase(activeBuzzCommands.begin() + i); // Remove the command from the vector
     }
   }
 }
