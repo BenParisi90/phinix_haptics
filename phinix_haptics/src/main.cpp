@@ -1,7 +1,7 @@
 #include <bluefruit.h>
 #include "pwm_sleeve.h"
 #include <Arduino.h>
-#include <vector>
+
 
 // Function prototypes for packetparser.cpp
 uint8_t readPacket(BLEUart *ble_uart);//, uint16_t timeout);
@@ -12,6 +12,11 @@ void startAdv(BLEUart *bleuart);
 void beginBluetooth(BLEUart *bleuart, BLEDfu *bledfu);
 void bluetoothConnectionCheck();
 
+void addBuzzCommand(int channel, unsigned long startDelay, unsigned long duration, int level);
+void updateBuzzCommands(float dt);
+
+void directSetBuzzerStrength(uint8_t packetbuffer[]);
+
 // Packet buffer
 extern uint8_t packetbuffer[];
 
@@ -19,63 +24,15 @@ extern uint8_t packetbuffer[];
 BLEDfu bledfu;
 BLEUart bleuart;
 
-static uint16_t level1[8] = {51};
-static uint16_t level2[8] = {102};
-static uint16_t level3[8] = {153};
-static uint16_t level4[8] = {204};
-static uint16_t level5[8] = {255};
-static uint16_t silence[8] = {0};
-uint16_t pattern[8] = {0};
-const uint16_t* levels[] = {silence, level1, level2, level3, level4, level5};
-
-int currentBuzzer = 0;
-const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
-
-bool testBuzz = false;
-
 //delta time
 int currentMillis = 0;
 int previousMillis = 0;
 int dt = 0;
 
-struct BuzzCommand {
-  int channel;
-  unsigned long startTime;
-  unsigned long duration;
-  int levelIndex;
-  bool active = false;
-};
-
-std::vector<BuzzCommand> activeBuzzCommands;
-
-void addBuzzCommand(int channel, unsigned long startDelay, unsigned long duration, int level) {
-  BuzzCommand buzzCommand;
-  buzzCommand.channel = buzzerChannelMap[channel];
-  buzzCommand.startTime = millis() + startDelay;
-  buzzCommand.duration = duration;
-  buzzCommand.levelIndex = level;
-  activeBuzzCommands.push_back(buzzCommand);
-}
-
-void updateBuzzCommands(float dt) {
-  for (int i = activeBuzzCommands.size() - 1; i >= 0; i--) {
-    BuzzCommand& buzzCommand = activeBuzzCommands[i]; // Use a reference to update the original object
-    unsigned long currentTime = millis();
-    if (!buzzCommand.active && currentTime >= buzzCommand.startTime) {
-      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, levels[buzzCommand.levelIndex]);
-      buzzCommand.active = true;
-    } else if(buzzCommand.active && currentTime >= buzzCommand.startTime + buzzCommand.duration){
-      nrf_gpio_pin_write(kLedPinBlue, 1);
-      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, silence);
-      buzzCommand.active = false;
-      activeBuzzCommands.erase(activeBuzzCommands.begin() + i); // Remove the command from the vector
-    }
-  }
-}
+bool testBuzz = false;
 
 void setup(void)
 {
-
   nrf_gpio_cfg_output(kLedPinBlue);
   nrf_gpio_cfg_output(kLedPinGreen);
 
@@ -138,13 +95,7 @@ void loop(void)
     // Print received UART data
     Serial.write(packetbuffer, len);
 
-    for(int i = 0; i < 8; i++)
-    {
-      int buzzerChannel = buzzerChannelMap[i];
-      int buzzerStrength = packetbuffer[i] - '0';
-      Serial.println(buzzerStrength);
-      audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel, levels[buzzerStrength]);
-    }
+    directSetBuzzerStrength(packetbuffer);
   }
 }
 
