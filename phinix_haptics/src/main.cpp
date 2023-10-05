@@ -14,6 +14,7 @@ void bluetoothConnectionCheck();
 
 void addBuzzCommand(int channel, unsigned long startDelay, int level);
 void updateBuzzCommands(float dt);
+void clearChannel(int channel);
 
 void directSetBuzzerStrength(uint8_t packetbuffer[]);
 
@@ -163,6 +164,13 @@ void odPlayBuzzerColumn(bool top, bool middle, bool bottom, uint16_t channel, ui
   uint16_t timePerBuzz = time / channelCount;
   uint16_t startTime = 0;
 
+  if(channelCount == 0)
+  {
+    return;
+  }
+
+  clearChannel(channel);
+  
   if(top)
   {
     addBuzzCommand(channel, startTime, 5);

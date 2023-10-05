@@ -64,3 +64,7 @@ void directSetBuzzerStrength(uint8_t packetbuffer[]) {
     audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel, levels[buzzerStrength]);
   }
 }
+
+void clearChannel(int channel) {
+  activeBuzzCommands[channel].clear();
+}
