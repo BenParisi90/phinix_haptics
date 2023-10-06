@@ -19,11 +19,16 @@ struct BuzzCommand {
   int channel;
   unsigned long startTime;
   int levelIndex;
-  bool active;
 };
 
+int doubleMap(double x, double in_min, double in_max, double out_min, double out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 // Define a vector of vectors to store the buzz commands for each channel
-std::vector<std::vector<BuzzCommand>> activeBuzzCommands(8);
+std::vector<std::vector<BuzzCommand>> pendingBuzzCommands(8);
+std::vector<BuzzCommand> activebuzzCommands(8);
 
 void addBuzzCommand(int channel, unsigned long startDelay, int level) {
   Serial.print("Adding buzz command: ");
@@ -37,23 +42,33 @@ void addBuzzCommand(int channel, unsigned long startDelay, int level) {
   buzzCommand.channel = buzzerChannelMap[channel];
   buzzCommand.startTime = millis() + startDelay;
   buzzCommand.levelIndex = level;
-  buzzCommand.active = false;
   // Add the buzz command to the vector for the specified channel
-  activeBuzzCommands[channel].push_back(buzzCommand);
+  pendingBuzzCommands[channel].push_back(buzzCommand);
 }
 
 void updateBuzzCommands(float dt) {
+  unsigned long currentTime = millis();
   for (int i = 0; i < 8; i++) {
     // Iterate over the vector for each channel
-    for (int j = activeBuzzCommands[i].size() - 1; j >= 0; j--) {
-      BuzzCommand& buzzCommand = activeBuzzCommands[i][j]; // Use a reference to update the original object
-      unsigned long currentTime = millis();
-      if (!buzzCommand.active && currentTime >= buzzCommand.startTime) {
+    for (int j = pendingBuzzCommands[i].size() - 1; j >= 0; j--) {
+      BuzzCommand& buzzCommand = pendingBuzzCommands[i][j]; // Use a reference to update the original object
+
+      if (currentTime >= buzzCommand.startTime) 
+      {
         audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, levels[buzzCommand.levelIndex]);
-        buzzCommand.active = true;
+        activebuzzCommands[buzzCommand.channel] = buzzCommand;
+        pendingBuzzCommands[i].erase(pendingBuzzCommands[i].begin() + j);
       }
     }
   }
+  double wave = sin(currentTime/1000.0);
+  int output = doubleMap(wave, -1.0, 1.0, 0.0, 255.0);
+  Serial.println(output);
+  //Serial.println(longMap(wave, -1.0, 1.0, 0.0, 255.0));
+
+
+  uint16_t level[8] = {output};
+  audio_tactile::SleeveTactors.UpdateChannel(buzzerChannelMap[3], level);
 }
 
 void directSetBuzzerStrength(uint8_t packetbuffer[]) {
@@ -66,5 +81,5 @@ void directSetBuzzerStrength(uint8_t packetbuffer[]) {
 }
 
 void clearChannel(int channel) {
-  activeBuzzCommands[channel].clear();
+  pendingBuzzCommands[channel].clear();
 }
