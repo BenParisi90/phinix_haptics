@@ -12,8 +12,9 @@ void startAdv(BLEUart *bleuart);
 void beginBluetooth(BLEUart *bleuart, BLEDfu *bledfu);
 void bluetoothConnectionCheck();
 
-void addBuzzCommand(int channel, unsigned long startDelay, int level);
-void updateBuzzCommands(float dt);
+void addBuzzCommand(int channel, unsigned long startDelay, int crest, int trough, int wavelength);
+void processPendingBuzzCommands(float dt);
+void processActiveBuzzCommands();
 void clearChannel(int channel);
 
 void directSetBuzzerStrength(uint8_t packetbuffer[]);
@@ -21,6 +22,8 @@ void directSetBuzzerStrength(uint8_t packetbuffer[]);
 void ObjectDetection();
 void odDetectBuzzerColumn(uint16_t topIndex, uint16_t middleIndex, uint16_t bottomIndex, uint16_t channel, uint16_t time);
 void odPlayBuzzerColumn(bool top, bool middle, bool bottom, uint16_t channel, uint16_t time);
+
+void PathDetection();
 
 // Packet buffer
 extern uint8_t packetbuffer[];
@@ -85,7 +88,9 @@ void loop(void)
   }
   */
 
-  updateBuzzCommands(dt);
+  processPendingBuzzCommands(dt);
+
+  processActiveBuzzCommands();
   
   bluetoothConnectionCheck();
 
@@ -118,7 +123,7 @@ void loop(void)
     }
     if(packetbuffer[0] == 'p')
     {
-      //PathDetection();
+      PathDetection();
     }
 
     //directSetBuzzerStrength(packetbuffer);
@@ -173,18 +178,27 @@ void odPlayBuzzerColumn(bool top, bool middle, bool bottom, uint16_t channel, ui
   
   if(top)
   {
-    addBuzzCommand(channel, startTime, 5);
+    addBuzzCommand(channel, startTime, 255, 255, 0);
     startTime += timePerBuzz;
   }
   if(middle)
   {
-    addBuzzCommand(channel, startTime, 3);
+    addBuzzCommand(channel, startTime, 153, 153, 0);
     startTime += timePerBuzz;
   }
   if(bottom)
   {
-    addBuzzCommand(channel, startTime, 1);
+    addBuzzCommand(channel, startTime, 55, 55, 0);
     startTime += timePerBuzz;
   }
-  addBuzzCommand(channel, startTime, 0);
+  addBuzzCommand(channel, startTime, 0, 0, 0);
+}
+
+void PathDetection()
+{
+  if(packetbuffer[1] == '1')
+  {
+    addBuzzCommand(1, 0, 255, 0, 500);
+    addBuzzCommand(1, 5000, 0, 0, 0);
+  }
 }
