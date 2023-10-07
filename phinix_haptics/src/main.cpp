@@ -24,6 +24,7 @@ void odDetectBuzzerColumn(uint16_t topIndex, uint16_t middleIndex, uint16_t bott
 void odPlayBuzzerColumn(bool top, bool middle, bool bottom, uint16_t channel, uint16_t time);
 
 void PathDetection();
+void PlayPathDetectionSide(int channel, char urgency);
 
 // Packet buffer
 extern uint8_t packetbuffer[];
@@ -38,6 +39,7 @@ int previousMillis = 0;
 int dt = 0;
 
 bool testBuzz = false;
+int testBuzzChannel = 0;
 
 void setup(void)
 {
@@ -125,6 +127,15 @@ void loop(void)
     {
       PathDetection();
     }
+    if(packetbuffer[0] == 't')
+    {
+      uint16_t level[8] = {100};
+      uint16_t silence[8] = {0};
+      audio_tactile::SleeveTactors.UpdateChannel(testBuzzChannel, silence);
+      testBuzzChannel++;
+      Serial.println(testBuzzChannel);
+      audio_tactile::SleeveTactors.UpdateChannel(testBuzzChannel, level);
+    }
 
     //directSetBuzzerStrength(packetbuffer);
   }
@@ -196,9 +207,21 @@ void odPlayBuzzerColumn(bool top, bool middle, bool bottom, uint16_t channel, ui
 
 void PathDetection()
 {
-  if(packetbuffer[1] == '1')
+  Serial.println("PathDetection");
+  Serial.println(packetbuffer[1]);
+  Serial.println(packetbuffer[2]);
+  PlayPathDetectionSide(1, packetbuffer[1]);
+  PlayPathDetectionSide(5, packetbuffer[2]);
+}
+
+void PlayPathDetectionSide(int channel, char urgency)
+{
+  int urgencyInt = urgency - '0';
+  if(urgencyInt == 0)
   {
-    addBuzzCommand(1, 0, 255, 0, 500);
-    addBuzzCommand(1, 5000, 0, 0, 0);
+    return;
   }
+  int strength = 255 / (4 - urgencyInt);
+  addBuzzCommand(channel, 0, strength, 0, 250);
+  addBuzzCommand(channel, 1500, 0, 0, 0);
 }

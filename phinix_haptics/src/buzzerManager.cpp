@@ -5,7 +5,7 @@
 uint16_t pattern[8] = {0};
 
 int currentBuzzer = 0;
-const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 0, 0};
+const int buzzerChannelMap[8] = {10, 6, 9, 8, 11, 7, 4, 5};
 
 struct BuzzCommand {
   int channel;
@@ -45,7 +45,7 @@ void addBuzzCommand(int channel, unsigned long startDelay, int crest, int trough
   Serial.print(wavelength);
   Serial.println(" ");
   BuzzCommand buzzCommand;
-  buzzCommand.channel = buzzerChannelMap[channel];
+  buzzCommand.channel = channel;
   buzzCommand.startTime = millis() + startDelay;
   buzzCommand.crest = crest;
   buzzCommand.trough = trough;
@@ -73,46 +73,40 @@ void processPendingBuzzCommands(float dt) {
         Serial.println("Execute buzz comand");
         Serial.println(buzzCommand.crest);
         uint16_t level[8] = {buzzCommand.crest};
-        audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, level);
+        audio_tactile::SleeveTactors.UpdateChannel(buzzerChannelMap[buzzCommand.channel], level);
       }
       pendingBuzzCommands[i].erase(pendingBuzzCommands[i].begin());
     }
   }
-  /*
-  double wave = sin(currentTime/1000.0);
-  int output = doubleMap(wave, -1.0, 1.0, 0.0, 255.0);
-  Serial.println(output);
-
-
-  uint16_t level[8] = {output};
-  audio_tactile::SleeveTactors.UpdateChannel(buzzerChannelMap[3], level);
-  */
 }
 
 void processActiveBuzzCommands()
 {
+  //Serial.println("Processing active buzz commands");
   unsigned long currentTime = millis();
   for(int i = 0; i < 8; i ++)
   {
     BuzzCommand& buzzCommand = activebuzzCommands[i];
+    //Serial.println(buzzCommand.wavelength);
     if(buzzCommand.wavelength != 0)
     {
       double wave = sin((currentTime - buzzCommand.startTime)/.159154 * buzzCommand.wavelength);
       int output = doubleMap(wave, -1.0, 1.0, buzzCommand.trough, buzzCommand.crest);
+      Serial.print(i);
+      Serial.print(" : ");
       Serial.println(output);
       uint16_t level[8] = {output};
-      audio_tactile::SleeveTactors.UpdateChannel(buzzCommand.channel, level);
+      audio_tactile::SleeveTactors.UpdateChannel(buzzerChannelMap[buzzCommand.channel], level);
     }
   }
 }
 
 void directSetBuzzerStrength(uint8_t packetbuffer[]) {
   for (int i = 0; i < 8; i++) {
-    int buzzerChannel = buzzerChannelMap[i];
     int buzzerStrength = packetbuffer[i] - '0';
     Serial.println(buzzerStrength);
     setPattern(255 / 5 * buzzerStrength);
-    audio_tactile::SleeveTactors.UpdateChannel(buzzerChannel, pattern);
+    audio_tactile::SleeveTactors.UpdateChannel(buzzerChannelMap[i], pattern);
   }
 }
 
